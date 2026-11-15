@@ -1,0 +1,30 @@
+stages:
+  - build
+  - security
+  - sign
+  - deploy
+
+variables:
+  IMAGE: "$CI_REGISTRY_IMAGE"
+
+build:
+  stage: build
+  script:
+    - docker build -t "$IMAGE:$CI_COMMIT_SHA" .
+    - docker push "$IMAGE:$CI_COMMIT_SHA"
+
+security_scan:
+  stage: security
+  script:
+    - trivy image --exit-code 1 --severity CRITICAL "$IMAGE:$CI_COMMIT_SHA"
+
+sign_image:
+  stage: sign
+  script:
+    - cosign sign --key "$COSIGN_PRIVATE_KEY_FILE" "$IMAGE@$IMAGE_DIGEST"
+
+deploy:
+  stage: deploy
+  script:
+    - cosign verify --key cosign.pub "$IMAGE@$IMAGE_DIGEST"
+    - echo "Signature validée, déploiement autorisé"
